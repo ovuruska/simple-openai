@@ -1,0 +1,12 @@
+# Ignore build files
+.env
+dist
+node_modules
+
+# Ignore log files
+DS_Store
+
+# Ignore IDE temporary files
+.vscode
+.idea
+.vs

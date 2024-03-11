@@ -1,0 +1,96 @@
+name: Node.js Package CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      node-version: ${{ steps.set-node-version.outputs.node-version }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set Node.js version
+        id: set-node-version
+        run: echo "::set-output name=node-version::18.x"
+
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.set-node-version.outputs.node-version }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build package
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-artifacts
+          path: |
+            dist/**
+            package.json
+            # Add other necessary files or directories like .npmrc if needed
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [${{ needs.build.outputs.node-version }}]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: build-artifacts
+          path: .
+
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Important for version tagging
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: build-artifacts
+          path: .
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Auto Increment Patch Version
+        run: |
+          npm version patch -m "ci: Bump version to %s [skip ci]"
+          git push --follow-tags
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
