@@ -1,7 +1,7 @@
 {
   "name": "simple-openai",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.1",
+  "description": "A simple wrapper around the OpenAI API for large-scale requests",
   "main": "index.js",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --outdir=dist --platform=node --target=node18",
